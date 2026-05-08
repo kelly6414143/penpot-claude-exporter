@@ -114,13 +114,14 @@ function fillToColor(fill, colorMap) {
   return { type }
 }
 
-// 遞迴檢查 shape 或其任意子孫是否有視覺內容
-function hasVisualContent(shape) {
-  if (toArray(shape.fills).length > 0) return true
-  if (toArray(shape.strokes).length > 0) return true
-  if (shape.borderRadius != null && shape.borderRadius > 0) return true
-  if (shape.type === 'text') return true
-  return toArray(shape.children).some(hasVisualContent)
+// 檢查已萃取的節點是否有可用的視覺內容（post-extraction）
+function hasExtractedContent(node) {
+  if ((node.fills?.length  ?? 0) > 0) return true
+  if ((node.strokes?.length ?? 0) > 0) return true
+  if (node.radius > 0) return true
+  if (node.text) return true
+  if (node.type === 'image') return true
+  return (node.children?.length ?? 0) > 0
 }
 
 // 過濾無視覺意義的 Penpot 基礎設施節點
@@ -192,8 +193,9 @@ function extractShape(shape, depth, colorMap, parentX, parentY) {
     }
     if (depth < 5 && shape.children && shape.children.length > 0) {
       const children = toArray(shape.children)
-        .filter((child) => !shouldSkip(child) && hasVisualContent(child))
+        .filter((child) => !shouldSkip(child))
         .map((child) => extractShape(child, depth + 1, colorMap, absX, absY))
+        .filter(hasExtractedContent)
       if (children.length > 0) node.children = children
     }
     return node
