@@ -116,7 +116,7 @@ function fillToColor(fill, colorMap) {
 
 // 過濾無視覺意義的 Penpot 基礎設施節點
 function shouldSkip(shape) {
-  if (shape.type === 'svg-raw') return true
+  // if (shape.type === 'svg-raw') return true
   if (
     shape.name === 'base-background' &&
     shape.type === 'rectangle' &&
