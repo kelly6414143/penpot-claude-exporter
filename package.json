@@ -1,0 +1,6 @@
+{
+  "name": "penpot-claude-exporter",
+  "version": "1.0.0",
+  "description": "Penpot plugin — 匯出設計結構供 Claude Code 產出前端代碼",
+  "scripts": {}
+}

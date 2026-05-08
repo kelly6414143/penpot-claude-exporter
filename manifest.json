@@ -1,0 +1,8 @@
+{
+  "name": "Penpot → Claude",
+  "description": "匯出當前頁面設計結構為 JSON，供 Claude Code 產出前端代碼",
+  "host": "https://penpot-json-export.vercel.app",
+  "code": "plugin.js",
+  "icon": "/icon.svg",
+  "permissions": ["content:read", "library:read", "allow:downloads"]
+}

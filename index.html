@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Penpot → Claude</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 16px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    h1 { font-size: 14px; font-weight: 700; color: #89b4fa; letter-spacing: 0.3px; }
+
+    .desc { font-size: 12px; color: #6c7086; line-height: 1.6; }
+
+    .status {
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #313244;
+      color: #a6adc8;
+      line-height: 1.4;
+    }
+    .status.success { color: #a6e3a1; background: #1e3a2e; }
+    .status.error   { color: #f38ba8; background: #3a1e2e; }
+    .status.loading { color: #f9e2af; }
+
+    .frame-selector {
+      background: #181825;
+      border: 1px solid #313244;
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .frame-selector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .frame-selector-label { font-size: 11px; color: #6c7086; }
+    .toggle-all {
+      font-size: 11px;
+      color: #89b4fa;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      width: auto;
+    }
+    .frame-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .frame-item:hover { background: #313244; }
+    .frame-item input[type="checkbox"] { accent-color: #89b4fa; cursor: pointer; }
+    .frame-item span { font-size: 11px; color: #cdd6f4; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .frame-item .dim { font-size: 10px; color: #6c7086; flex-shrink: 0; }
+
+    textarea {
+      flex: 1;
+      background: #181825;
+      border: 1px solid #313244;
+      border-radius: 6px;
+      color: #a6e3a1;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 10.5px;
+      line-height: 1.5;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      min-height: 0;
+    }
+
+    .btn-row { display: flex; gap: 8px; }
+
+    button {
+      padding: 4px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+      width: 100%;
+    }
+    .btn-row button { flex: 1; width: auto; }
+    button:hover  { opacity: 0.85; }
+    button:active { opacity: 0.7; }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-primary   { background: #89b4fa; color: #1e1e2e; }
+    .btn-secondary { background: #313244; color: #cdd6f4; }
+    .btn-download  { background: #a6e3a1; color: #1e1e2e; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <h1>Penpot → Claude Exporter</h1>
+
+  <p class="desc">
+    點擊「匯出」讀取當前頁面的 frame 結構，<br>
+    下載 <code style="color:#cba6f7">design.json</code> 後放到專案目錄，<br>
+    讓 Claude Code 讀取並產出前端代碼。
+  </p>
+
+  <button class="btn-primary" id="btnExport">⬇ 匯出當前頁面</button>
+
+  <div class="status" id="status">尚未匯出，點擊上方按鈕開始</div>
+
+  <div class="frame-selector hidden" id="frameSelector">
+    <div class="frame-selector-header">
+      <span class="frame-selector-label">選擇要匯出的 frames</span>
+      <button class="toggle-all" id="btnToggleAll">全部取消</button>
+    </div>
+    <div id="frameList"></div>
+  </div>
+
+  <textarea id="output" readonly placeholder="匯出結果將顯示在此..." class="hidden"></textarea>
+
+  <div class="btn-row hidden" id="actions">
+    <button class="btn-secondary" id="btnCopy">複製 JSON</button>
+    <button class="btn-download" id="btnDownload">下載 design.json</button>
+  </div>
+
+  <script>
+    const btnExport    = document.getElementById('btnExport')
+    const btnCopy      = document.getElementById('btnCopy')
+    const btnDownload  = document.getElementById('btnDownload')
+    const btnToggleAll = document.getElementById('btnToggleAll')
+    const output       = document.getElementById('output')
+    const status       = document.getElementById('status')
+    const actions      = document.getElementById('actions')
+    const frameSelector = document.getElementById('frameSelector')
+    const frameList    = document.getElementById('frameList')
+
+    let allData = null
+    const selected = new Set()
+
+    function setStatus(msg, type = '') {
+      status.textContent = msg
+      status.className = `status ${type}`
+    }
+
+    function buildOutput() {
+      if (!allData) return
+      const frames = allData.frames.filter((f) => selected.has(f.name))
+      const result = { ...allData, frameCount: frames.length, frames }
+      output.value = JSON.stringify(result, null, 2)
+    }
+
+    function buildFrameList(frames) {
+      frameList.innerHTML = ''
+      selected.clear()
+      frames.forEach((frame) => {
+        selected.add(frame.name)
+        const item = document.createElement('label')
+        item.className = 'frame-item'
+
+        const cb = document.createElement('input')
+        cb.type = 'checkbox'
+        cb.checked = true
+        cb.addEventListener('change', () => {
+          if (cb.checked) selected.add(frame.name)
+          else selected.delete(frame.name)
+          buildOutput()
+          btnToggleAll.textContent = selected.size > 0 ? '全部取消' : '全部選取'
+        })
+
+        const name = document.createElement('span')
+        name.textContent = frame.name
+
+        const dim = document.createElement('span')
+        dim.className = 'dim'
+        dim.textContent = `${frame.w}×${frame.h}`
+
+        item.appendChild(cb)
+        item.appendChild(name)
+        item.appendChild(dim)
+        frameList.appendChild(item)
+      })
+    }
+
+    btnToggleAll.addEventListener('click', () => {
+      const checkboxes = frameList.querySelectorAll('input[type="checkbox"]')
+      const hasAny = selected.size > 0
+      checkboxes.forEach((cb) => {
+        cb.checked = !hasAny
+        const name = cb.nextElementSibling.textContent
+        if (!hasAny) selected.add(name)
+        else selected.delete(name)
+      })
+      btnToggleAll.textContent = selected.size > 0 ? '全部取消' : '全部選取'
+      buildOutput()
+    })
+
+    btnExport.addEventListener('click', () => {
+      btnExport.disabled = true
+      setStatus('讀取中...', 'loading')
+      parent.postMessage({ type: 'export' }, '*')
+    })
+
+    btnCopy.addEventListener('click', () => {
+      output.select()
+      output.setSelectionRange(0, 99999)
+      let ok = false
+      try { ok = document.execCommand('copy') } catch (_) {}
+      if (!ok) {
+        try { navigator.clipboard.writeText(output.value); ok = true } catch (_) {}
+      }
+      const orig = btnCopy.textContent
+      btnCopy.textContent = ok ? '已複製 ✓' : '請手動 Ctrl+A / Ctrl+C'
+      setTimeout(() => { btnCopy.textContent = orig }, 2500)
+    })
+
+    btnDownload.addEventListener('click', () => {
+      const blob = new Blob([output.value], { type: 'application/json' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = 'design.json'
+      a.click()
+      URL.revokeObjectURL(url)
+    })
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data
+      btnExport.disabled = false
+
+      if (msg.type === 'result') {
+        allData = msg.data
+        buildFrameList(allData.frames)
+        buildOutput()
+        frameSelector.classList.remove('hidden')
+        output.classList.remove('hidden')
+        actions.classList.remove('hidden')
+        setStatus(`✓ 載入完成：${allData.page}（${allData.frameCount} 個 frame）`, 'success')
+      } else if (msg.type === 'error') {
+        setStatus(`✗ ${msg.message}`, 'error')
+      }
+    })
+  </script>
+</body>
+</html>
