@@ -116,13 +116,14 @@ function fillToColor(fill, colorMap) {
 
 // 過濾無視覺意義的 Penpot 基礎設施節點
 function shouldSkip(shape) {
-  // if (shape.type === 'svg-raw') return true
-  if (
-    shape.name === 'base-background' &&
-    shape.type === 'rectangle' &&
-    toArray(shape.fills).length === 0 &&
-    toArray(shape.strokes).length === 0
-  ) return true
+  // 容器型（group/board）與文字不過濾
+  const isContainer = shape.type === 'group' || shape.type === 'board' || shape.type === 'frame'
+  if (!isContainer && shape.type !== 'text') {
+    const noFills   = toArray(shape.fills).length === 0
+    const noStrokes = toArray(shape.strokes).length === 0
+    const noRadius  = shape.borderRadius == null || shape.borderRadius === 0
+    if (noFills && noStrokes && noRadius) return true
+  }
   return false
 }
 
