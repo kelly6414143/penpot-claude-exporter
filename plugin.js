@@ -1,7 +1,9 @@
 // plugin.js — 在 Penpot 環境中執行，可存取 penpot 物件
 
+const PLUGIN_VERSION = '1.5.0'
+
 try {
-  penpot.ui.open('Penpot → Claude', '?v=1', { width: 400, height: 540 })
+  penpot.ui.open(`Penpot → Claude v${PLUGIN_VERSION}`, '?v=1', { width: 400, height: 540 })
 } catch (e) {
   console.error('[penpot-claude] ui.open failed:', e)
 }
@@ -308,6 +310,7 @@ function extractShape(shape, depth, colorMap, parentX, parentY) {
     const children = toArray(shape.children)
       .filter((child) => !shouldSkip(child))
       .map((child) => extractShape(child, depth + 1, colorMap, absX, absY))
+      .filter(hasExtractedContent)
     if (children.length > 0) result.children = children
   }
 
@@ -328,6 +331,7 @@ penpot.ui.onMessage((msg) => {
       const frames = topShapes.filter((s) => s.type === 'board' && !s.name.includes('備註'))
 
       const data = {
+        version: PLUGIN_VERSION,
         page: page.name,
         exportedAt: new Date().toISOString(),
         frameCount: frames.length,
