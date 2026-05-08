@@ -155,6 +155,31 @@ function extractShape(shape, depth, colorMap, parentX, parentY) {
     if (shape.height != null) node.h = Math.round(shape.height)
     if (shape.x      != null) node.x = absX - parentX
     if (shape.y      != null) node.y = absY - parentY
+    if (shape.opacity != null && shape.opacity < 0.999)
+      node.opacity = Math.round(shape.opacity * 100) / 100
+    if (shape.borderRadius != null && shape.borderRadius > 0)
+      node.radius = Math.round(shape.borderRadius)
+    const fillList = toArray(shape.fills)
+    if (fillList.length > 0) {
+      const colors = fillList.map((f) => fillToColor(f, colorMap)).filter(Boolean)
+      if (colors.length > 0) node.fills = colors
+    }
+    const strokeList = toArray(shape.strokes)
+    if (strokeList.length > 0) {
+      const strokes = strokeList.map((s) => {
+        const lib    = colorMap[s.strokeColorRefId] ?? null
+        const rawHex = s.strokeColor || lib?.color  || null
+        const hex    = rawHex ? solidHex(rawHex, s.strokeOpacity ?? lib?.opacity) : null
+        if (!hex && !lib?.name) return null
+        const entry = (hex && lib?.name) ? { name: lib.name, color: hex }
+                    : lib?.name          ? { name: lib.name }
+                    : { color: hex }
+        if (s.strokeWidth != null) entry.width = Math.round(s.strokeWidth)
+        if (s.strokeType)          entry.strokeType = s.strokeType
+        return entry
+      }).filter(Boolean)
+      if (strokes.length > 0) node.strokes = strokes
+    }
     return node
   }
 
