@@ -114,6 +114,15 @@ function fillToColor(fill, colorMap) {
   return { type }
 }
 
+// 遞迴檢查 shape 或其任意子孫是否有視覺內容
+function hasVisualContent(shape) {
+  if (toArray(shape.fills).length > 0) return true
+  if (toArray(shape.strokes).length > 0) return true
+  if (shape.borderRadius != null && shape.borderRadius > 0) return true
+  if (shape.type === 'text') return true
+  return toArray(shape.children).some(hasVisualContent)
+}
+
 // 過濾無視覺意義的 Penpot 基礎設施節點
 function shouldSkip(shape) {
   // 容器型（group/board）與文字不過濾
@@ -151,7 +160,7 @@ function extractShape(shape, depth, colorMap, parentX, parentY) {
   if (shape.name.includes(' / ')) {
     const absX = shape.x != null ? Math.round(shape.x) : parentX
     const absY = shape.y != null ? Math.round(shape.y) : parentY
-    const node = { name: shape.name, type: 'image' }
+    const node = { name: shape.name, type: 'image', url: shape.name.split(' / ')[1] ?? shape.name }
     if (shape.width  != null) node.w = Math.round(shape.width)
     if (shape.height != null) node.h = Math.round(shape.height)
     if (shape.x      != null) node.x = absX - parentX
@@ -183,7 +192,7 @@ function extractShape(shape, depth, colorMap, parentX, parentY) {
     }
     if (depth < 5 && shape.children && shape.children.length > 0) {
       const children = toArray(shape.children)
-        .filter((child) => !shouldSkip(child))
+        .filter((child) => !shouldSkip(child) && hasVisualContent(child))
         .map((child) => extractShape(child, depth + 1, colorMap, absX, absY))
       if (children.length > 0) node.children = children
     }
