@@ -180,6 +180,12 @@ function extractShape(shape, depth, colorMap, parentX, parentY) {
       }).filter(Boolean)
       if (strokes.length > 0) node.strokes = strokes
     }
+    if (depth < 5 && shape.children && shape.children.length > 0) {
+      const children = toArray(shape.children)
+        .filter((child) => !shouldSkip(child))
+        .map((child) => extractShape(child, depth + 1, colorMap, absX, absY))
+      if (children.length > 0) node.children = children
+    }
     return node
   }
 
