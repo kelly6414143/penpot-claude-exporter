@@ -163,7 +163,7 @@
 
     function buildOutput() {
       if (!allData) return
-      const frames = allData.frames.filter((f) => selected.has(f.name))
+      const frames = allData.frames.filter((f) => selected.has(f.id ?? f.name))
       const result = { ...allData, frameCount: frames.length, frames }
       output.value = JSON.stringify(result, null, 2)
     }
@@ -171,23 +171,37 @@
     function buildFrameList(frames) {
       frameList.innerHTML = ''
       selected.clear()
+
+      // 找出有重複名稱的 frames，需顯示短 id 輔助辨識
+      const nameCounts = {}
+      frames.forEach((f) => { nameCounts[f.name] = (nameCounts[f.name] ?? 0) + 1 })
+
       frames.forEach((frame) => {
-        selected.add(frame.name)
+        const key = frame.id ?? frame.name
+        selected.add(key)
+
         const item = document.createElement('label')
         item.className = 'frame-item'
 
         const cb = document.createElement('input')
         cb.type = 'checkbox'
         cb.checked = true
+        cb.dataset.frameKey = key
         cb.addEventListener('change', () => {
-          if (cb.checked) selected.add(frame.name)
-          else selected.delete(frame.name)
+          if (cb.checked) selected.add(key)
+          else selected.delete(key)
           buildOutput()
           btnToggleAll.textContent = selected.size > 0 ? '全部取消' : '全部選取'
         })
 
         const name = document.createElement('span')
-        name.textContent = frame.name
+        const isDuplicate = nameCounts[frame.name] > 1
+        if (isDuplicate && frame.id) {
+          name.textContent = `${frame.name} #${frame.id.slice(-6)}`
+          name.title = `id: ${frame.id}`
+        } else {
+          name.textContent = frame.name
+        }
 
         const dim = document.createElement('span')
         dim.className = 'dim'
@@ -205,9 +219,8 @@
       const hasAny = selected.size > 0
       checkboxes.forEach((cb) => {
         cb.checked = !hasAny
-        const name = cb.nextElementSibling.textContent
-        if (!hasAny) selected.add(name)
-        else selected.delete(name)
+        if (!hasAny) selected.add(cb.dataset.frameKey)
+        else selected.delete(cb.dataset.frameKey)
       })
       btnToggleAll.textContent = selected.size > 0 ? '全部取消' : '全部選取'
       buildOutput()

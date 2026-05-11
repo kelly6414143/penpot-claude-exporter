@@ -204,6 +204,7 @@ function extractShape(shape, depth, colorMap, parentX, parentY) {
   }
 
   const result = { name: shape.name }
+  if (shape.id) result.id = shape.id
   if (shape.type !== 'board') result.type = shape.type
 
   const absX = shape.x != null ? Math.round(shape.x) : parentX
